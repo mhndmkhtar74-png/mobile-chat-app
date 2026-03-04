@@ -1,5 +1,6 @@
 flask
-flask-sqlalchemy
 flask-login
-cloudinary
+flask-pymongo
+pymongo[srv]
 gunicorn
+
