@@ -3,35 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مراسلة</title>
+    <title>دردشة بيت مختار</title>
     <style>
-        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #e5ddd5; }
-        header { background: #075e54; color: white; padding: 15px; text-align: center; }
-        #chat-window { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { background: white; padding: 10px; border-radius: 10px; max-width: 80%; width: fit-content; }
-        .my-msg { align-self: flex-start; background: #dcf8c6; }
-        .other-msg { align-self: flex-end; }
-        form { background: #f0f0f0; padding: 10px; display: flex; gap: 5px; }
-        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
-        button { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* شريط العائلة العلوي */
+        .family-bar { background: #075e54; color: white; padding: 10px; overflow-x: auto; display: flex; white-space: nowrap; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .family-member { background: #128c7e; padding: 8px 15px; border-radius: 20px; text-decoration: none; color: white; font-size: 14px; border: 1px solid rgba(255,255,255,0.3); }
+        .family-member.active { background: #25d366; font-weight: bold; border: 1px solid white; }
+
+        /* منطقة الرسائل */
+        .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px; border-radius: 10px; position: relative; font-size: 15px; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .sent { align-self: flex-end; background-color: #dcf8c6; border-bottom-right-radius: 0; }
+        .received { align-self: flex-start; background-color: #ffffff; border-bottom-left-radius: 0; }
+        
+        .sender-name { font-weight: bold; font-size: 12px; color: #075e54; margin-bottom: 3px; display: block; }
+        .msg-content { word-wrap: break-word; }
+
+        /* صندوق الإدخال السفلي */
+        .input-area { background: #f0f0f0; padding: 10px; display: flex; gap: 10px; align-items: center; border-top: 1px solid #ddd; }
+        input[type="text"] { flex: 1; padding: 12px; border: none; border-radius: 25px; outline: none; font-size: 16px; }
+        button { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+
+        .header-title { background: #075e54; color: white; text-align: center; padding: 5px; font-size: 12px; border-bottom: 1px solid #054d44; }
     </style>
 </head>
 <body>
-    <header>مجموعة الـ 10 مستخدمين</header>
-    
-    <div id="chat-window">
-        {% for msg in messages %}
-            <div class="msg {% if msg.sender == current_user.username %}my-msg{% else %}other-msg{% endif %}">
-                <small><b>{{ msg.sender }}</b></small><br>
-                {{ msg.content }}
-            </div>
+
+    <div class="header-title">
+        مرحباً بك يا {{ current_user.username }} | <a href="/logout" style="color: #ffbcbc; text-decoration: none;">خروج</a>
+    </div>
+
+    <div class="family-bar">
+        <a href="/" class="family-member {% if not recipient %}active{% endif %}">📢 الدردشة العامة</a>
+        
+        {% for user in users %}
+        <a href="/private/{{ user.username }}" class="family-member {% if recipient == user.username %}active{% endif %}">
+            👤 {{ user.username }}
+        </a>
         {% endfor %}
     </div>
 
-    <form action="/send" method="post">
-        <input type="text" name="content" placeholder="اكتب رسالة..." required>
-        <input type="hidden" name="receiver" value="Group">
+    <div class="chat-container" id="chatBox">
+        <div style="text-align: center; color: #777; font-size: 12px; margin-bottom: 10px;">
+            {% if recipient %}
+                محادثة خاصة مع {{ recipient }}
+            {% else %}
+                مجموعة بيت مختار العامة
+            {% endif %}
+        </div>
+
+        {% for msg in messages %}
+        <div class="message {% if msg.sender == current_user.username %}sent{% else %}received{% endif %}">
+            {% if not recipient and msg.sender != current_user.username %}
+                <span class="sender-name">{{ msg.sender }}</span>
+            {% endif %}
+            <div class="msg-content">{{ msg.content }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form class="input-area" action="/send" method="POST">
+        <input type="hidden" name="chat_type" value="{% if recipient %}private{% else %}public{% endif %}">
+        <input type="hidden" name="receiver" value="{{ recipient if recipient else 'Group' }}">
+        
+        <input type="text" name="content" placeholder="اكتب رسالتك هنا..." required autocomplete="off">
         <button type="submit">إرسال</button>
     </form>
+
+    <script>
+        // لجعل الشات ينزل لآخر رسالة تلقائياً عند الفتح
+        var chatBox = document.getElementById("chatBox");
+        chatBox.scrollTop = chatBox.scrollHeight;
+    </script>
+
 </body>
 </html>
