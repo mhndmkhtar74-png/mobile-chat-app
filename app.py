@@ -1,23 +1,20 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mohannad_family_2026'
+app.config['SECRET_KEY'] = 'mohannad_private_2026'
 
-# رابط مونجو الخاص بك مع بياناتك المحدثة
+# رابط مونجو الخاص بك
 app.config["MONGO_URI"] = "mongodb+srv://mohannad:family123@cluster0.arkrscx.mongodb.net/chat_db?retryWrites=true&w=majority&appName=Cluster0"
 
-# تهيئة اتصال مونجو
 mongo = PyMongo(app)
-
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# --- نموذج المستخدم ---
 class User(UserMixin):
     def __init__(self, user_data):
         self.id = str(user_data['_id'])
@@ -25,30 +22,56 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
-    return User(user_data) if user_data else None
+    try:
+        user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+        return User(user_data) if user_data else None
+    except:
+        return None
 
-# --- المسارات ---
+# دالة إعداد العائلة بكلمات مرور مختلفة وحذف عمر عمار
+def init_family():
+    # قائمة العائلة مع كلمة مرور خاصة لكل فرد
+    family_data = {
+        "مختار امين": "m101",
+        "عائدة مهيوب": "a102",
+        "رحاب مختار": "r103",
+        "رينا مختار": "rn104",
+        "رفاء مختار": "rf105",
+        "ايمن مختار": "ay106",
+        "مهند مختار": "mh107",
+        "جنات مختار": "jn108",
+        "محمد مختار": "md109"
+    }
+    
+    for name, pwd in family_data.items():
+        # إذا لم يكن المستخدم موجوداً، نقوم بإضافته أو تحديث كلمة مروره
+        mongo.db.users.update_one(
+            {"username": name},
+            {"$set": {"username": name, "password": pwd}},
+            upsert=True
+        )
+    
+    # التأكد من حذف "عمر عمار" من قاعدة البيانات إذا كان موجوداً
+    mongo.db.users.delete_one({"username": "عمر عمار"})
 
 @app.route('/')
 @login_required
 def index():
-    # جلب آخر 50 رسالة من المجموعة
     messages = list(mongo.db.messages.find({"receiver": "Group"}).sort("timestamp", 1).limit(50))
     return render_template('chat.html', messages=messages)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    init_family() # تحديث البيانات عند كل دخول
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         user_data = mongo.db.users.find_one({"username": username, "password": password})
         if user_data:
-            user_obj = User(user_data)
-            login_user(user_obj)
+            login_user(User(user_data))
             return redirect(url_for('index'))
         else:
-            return "خطأ في البيانات.. تأكد من الاسم وكلمة المرور"
+            return "خطأ في الاسم أو كلمة المرور الخاصة بالعائلة"
     return render_template('login.html')
 
 @app.route('/send', methods=['POST'])
@@ -63,15 +86,6 @@ def send():
             "timestamp": datetime.now()
         })
     return redirect(url_for('index'))
-
-# مسار خاص لك يا مهند لإضافة أفراد العائلة بسهولة
-@app.route('/add_user/<name>/<pwd>')
-def add_user(name, pwd):
-    exists = mongo.db.users.find_one({"username": name})
-    if not exists:
-        mongo.db.users.insert_one({"username": name, "password": pwd})
-        return f"تمت إضافة {name} بنجاح!"
-    return "المستخدم موجود بالفعل"
 
 @app.route('/logout')
 def logout():
