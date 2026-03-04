@@ -1,13 +1,28 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from datetime import datetime
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mohannad_private_2026'
+app.config['SECRET_KEY'] = 'mohannad_yemen_final_2026'
 app.config["MONGO_URI"] = "mongodb+srv://mohannad:family123@cluster0.arkrscx.mongodb.net/chat_db?retryWrites=true&w=majority&appName=Cluster0"
+
+# إعداد مجلد الرفع في السيرفر
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# --- ميزة التخزين في ذاكرة الهاتف (Cache) ---
+@app.after_request
+def add_header(response):
+    # إخبار الهاتف بحفظ الصور والفيديوهات لمدة سنة (بالثواني)
+    if response.status_code == 200:
+        response.cache_control.max_age = 31536000 
+        response.cache_control.public = True
+    return response
 
 mongo = PyMongo(app)
 login_manager = LoginManager(app)
@@ -25,21 +40,10 @@ def load_user(user_id):
         return User(user_data) if user_data else None
     except: return None
 
-def init_family():
-    family_data = {
-        "مختار امين": "m101", "عائدة مهيوب": "a102", "رحاب مختار": "r103",
-        "رينا مختار": "rn104", "رفاء مختار": "rf105", "ايمن مختار": "ay106",
-        "مهند مختار": "mh107", "جنات مختار": "jn108", "محمد مختار": "md109"
-    }
-    for name, pwd in family_data.items():
-        mongo.db.users.update_one({"username": name}, {"$set": {"username": name, "password": pwd}}, upsert=True)
-
 @app.route('/')
 @login_required
 def index():
-    init_family()
     users = mongo.db.users.find({"username": {"$ne": current_user.username}})
-    # جلب رسائل العام
     messages = list(mongo.db.messages.find({"type": "public"}).sort("timestamp", 1))
     return render_template('chat.html', users=users, messages=messages, chat_type="public")
 
@@ -47,7 +51,6 @@ def index():
 @login_required
 def private_chat(recipient):
     users = mongo.db.users.find({"username": {"$ne": current_user.username}})
-    # جلب الرسائل بين الشخصين فقط
     messages = list(mongo.db.messages.find({
         "type": "private",
         "$or": [
@@ -63,19 +66,33 @@ def send():
     content = request.form.get('content')
     chat_type = request.form.get('chat_type')
     receiver = request.form.get('receiver', 'Group')
+    file = request.files.get('file')
     
-    if content:
+    file_url, file_type = None, None
+
+    if file and file.filename != '':
+        filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        file_url = f"/static/uploads/{filename}"
+        
+        ext = filename.rsplit('.', 1)[1].lower()
+        if ext in ['jpg', 'jpeg', 'png', 'gif']: file_type = 'image'
+        elif ext in ['mp4', 'mov', 'avi']: file_type = 'video'
+        elif ext in ['mp3', 'wav', 'm4a']: file_type = 'audio'
+
+    if content or file_url:
         mongo.db.messages.insert_one({
             "sender": current_user.username,
             "receiver": receiver,
             "content": content,
+            "file_url": file_url,
+            "file_type": file_type,
             "type": chat_type,
             "timestamp": datetime.now()
         })
     
-    if chat_type == "private":
-        return redirect(url_for('private_chat', recipient=receiver))
-    return redirect(url_for('index'))
+    return redirect(url_for('private_chat', recipient=receiver) if chat_type == "private" else url_for('index'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
