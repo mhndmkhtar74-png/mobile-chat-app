@@ -7,8 +7,6 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mohannad_private_2026'
-
-# رابط مونجو الخاص بك
 app.config["MONGO_URI"] = "mongodb+srv://mohannad:family123@cluster0.arkrscx.mongodb.net/chat_db?retryWrites=true&w=majority&appName=Cluster0"
 
 mongo = PyMongo(app)
@@ -25,67 +23,68 @@ def load_user(user_id):
     try:
         user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
         return User(user_data) if user_data else None
-    except:
-        return None
+    except: return None
 
-# دالة إعداد العائلة بكلمات مرور مختلفة وحذف عمر عمار
 def init_family():
-    # قائمة العائلة مع كلمة مرور خاصة لكل فرد
     family_data = {
-        "مختار امين": "m101",
-        "عائدة مهيوب": "a102",
-        "رحاب مختار": "r103",
-        "رينا مختار": "rn104",
-        "رفاء مختار": "rf105",
-        "ايمن مختار": "ay106",
-        "مهند مختار": "mh107",
-        "جنات مختار": "jn108",
-        "محمد مختار": "md109"
+        "مختار امين": "m101", "عائدة مهيوب": "a102", "رحاب مختار": "r103",
+        "رينا مختار": "rn104", "رفاء مختار": "rf105", "ايمن مختار": "ay106",
+        "مهند مختار": "mh107", "جنات مختار": "jn108", "محمد مختار": "md109"
     }
-    
     for name, pwd in family_data.items():
-        # إذا لم يكن المستخدم موجوداً، نقوم بإضافته أو تحديث كلمة مروره
-        mongo.db.users.update_one(
-            {"username": name},
-            {"$set": {"username": name, "password": pwd}},
-            upsert=True
-        )
-    
-    # التأكد من حذف "عمر عمار" من قاعدة البيانات إذا كان موجوداً
-    mongo.db.users.delete_one({"username": "عمر عمار"})
+        mongo.db.users.update_one({"username": name}, {"$set": {"username": name, "password": pwd}}, upsert=True)
 
 @app.route('/')
 @login_required
 def index():
-    messages = list(mongo.db.messages.find({"receiver": "Group"}).sort("timestamp", 1).limit(50))
-    return render_template('chat.html', messages=messages)
+    init_family()
+    users = mongo.db.users.find({"username": {"$ne": current_user.username}})
+    # جلب رسائل العام
+    messages = list(mongo.db.messages.find({"type": "public"}).sort("timestamp", 1))
+    return render_template('chat.html', users=users, messages=messages, chat_type="public")
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    init_family() # تحديث البيانات عند كل دخول
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user_data = mongo.db.users.find_one({"username": username, "password": password})
-        if user_data:
-            login_user(User(user_data))
-            return redirect(url_for('index'))
-        else:
-            return "خطأ في الاسم أو كلمة المرور الخاصة بالعائلة"
-    return render_template('login.html')
+@app.route('/private/<recipient>')
+@login_required
+def private_chat(recipient):
+    users = mongo.db.users.find({"username": {"$ne": current_user.username}})
+    # جلب الرسائل بين الشخصين فقط
+    messages = list(mongo.db.messages.find({
+        "type": "private",
+        "$or": [
+            {"sender": current_user.username, "receiver": recipient},
+            {"sender": recipient, "receiver": current_user.username}
+        ]
+    }).sort("timestamp", 1))
+    return render_template('chat.html', users=users, messages=messages, chat_type="private", recipient=recipient)
 
 @app.route('/send', methods=['POST'])
 @login_required
 def send():
     content = request.form.get('content')
+    chat_type = request.form.get('chat_type')
+    receiver = request.form.get('receiver', 'Group')
+    
     if content:
         mongo.db.messages.insert_one({
             "sender": current_user.username,
-            "receiver": "Group",
+            "receiver": receiver,
             "content": content,
+            "type": chat_type,
             "timestamp": datetime.now()
         })
+    
+    if chat_type == "private":
+        return redirect(url_for('private_chat', recipient=receiver))
     return redirect(url_for('index'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user_data = mongo.db.users.find_one({"username": request.form.get('username'), "password": request.form.get('password')})
+        if user_data:
+            login_user(User(user_data))
+            return redirect(url_for('index'))
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
