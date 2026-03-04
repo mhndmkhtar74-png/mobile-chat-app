@@ -5,78 +5,97 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>دردشة بيت مختار</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        
-        /* شريط العائلة العلوي */
-        .family-bar { background: #075e54; color: white; padding: 10px; overflow-x: auto; display: flex; white-space: nowrap; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .family-member { background: #128c7e; padding: 8px 15px; border-radius: 20px; text-decoration: none; color: white; font-size: 14px; border: 1px solid rgba(255,255,255,0.3); }
+        body { font-family: sans-serif; background-color: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .family-bar { background: #075e54; color: white; padding: 10px; overflow-x: auto; display: flex; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .family-member { background: #128c7e; padding: 8px 15px; border-radius: 20px; text-decoration: none; color: white; font-size: 13px; flex-shrink: 0; }
         .family-member.active { background: #25d366; font-weight: bold; border: 1px solid white; }
-
-        /* منطقة الرسائل */
+        
         .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .message { max-width: 80%; padding: 10px; border-radius: 10px; position: relative; font-size: 15px; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .message { max-width: 85%; padding: 10px; border-radius: 10px; position: relative; font-size: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .sent { align-self: flex-end; background-color: #dcf8c6; border-bottom-right-radius: 0; }
         .received { align-self: flex-start; background-color: #ffffff; border-bottom-left-radius: 0; }
         
-        .sender-name { font-weight: bold; font-size: 12px; color: #075e54; margin-bottom: 3px; display: block; }
-        .msg-content { word-wrap: break-word; }
+        .media-box { margin-top: 5px; border-radius: 10px; overflow: hidden; }
+        .media-box img, .media-box video { max-width: 100%; border-radius: 8px; display: block; }
+        .download-btn { display: inline-block; background: #075e54; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; font-size: 11px; margin-top: 5px; }
 
-        /* صندوق الإدخال السفلي */
-        .input-area { background: #f0f0f0; padding: 10px; display: flex; gap: 10px; align-items: center; border-top: 1px solid #ddd; }
-        input[type="text"] { flex: 1; padding: 12px; border: none; border-radius: 25px; outline: none; font-size: 16px; }
-        button { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-
-        .header-title { background: #075e54; color: white; text-align: center; padding: 5px; font-size: 12px; border-bottom: 1px solid #054d44; }
+        /* منطقة الإدخال الجديدة والمحسنة */
+        .input-area { background: #f0f0f0; padding: 10px; display: flex; gap: 10px; align-items: center; border-top: 1px solid #ddd; position: sticky; bottom: 0; }
+        
+        /* تصميم زر المرفقات */
+        .file-label { 
+            background: #ffffff; 
+            color: #075e54; 
+            width: 45px; 
+            height: 45px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: 50%; 
+            font-size: 24px; 
+            cursor: pointer; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        input[type="text"] { flex: 1; padding: 12px 15px; border: 1px solid #ccc; border-radius: 25px; outline: none; font-size: 16px; }
+        button { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 25px; font-weight: bold; cursor: pointer; }
+        
+        /* علامة عند اختيار ملف */
+        #file-chosen { font-size: 10px; color: #075e54; position: absolute; bottom: 55px; right: 15px; background: #fff; padding: 2px 5px; border-radius: 5px; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="header-title">
-        مرحباً بك يا {{ current_user.username }} | <a href="/logout" style="color: #ffbcbc; text-decoration: none;">خروج</a>
-    </div>
-
     <div class="family-bar">
-        <a href="/" class="family-member {% if not recipient %}active{% endif %}">📢 الدردشة العامة</a>
-        
+        <a href="/" class="family-member {% if not recipient %}active{% endif %}">📢 العام</a>
         {% for user in users %}
-        <a href="/private/{{ user.username }}" class="family-member {% if recipient == user.username %}active{% endif %}">
-            👤 {{ user.username }}
-        </a>
+        <a href="/private/{{ user.username }}" class="family-member {% if recipient == user.username %}active{% endif %}">👤 {{ user.username }}</a>
         {% endfor %}
     </div>
 
     <div class="chat-container" id="chatBox">
-        <div style="text-align: center; color: #777; font-size: 12px; margin-bottom: 10px;">
-            {% if recipient %}
-                محادثة خاصة مع {{ recipient }}
-            {% else %}
-                مجموعة بيت مختار العامة
-            {% endif %}
-        </div>
-
         {% for msg in messages %}
         <div class="message {% if msg.sender == current_user.username %}sent{% else %}received{% endif %}">
             {% if not recipient and msg.sender != current_user.username %}
-                <span class="sender-name">{{ msg.sender }}</span>
+                <span style="font-weight: bold; font-size: 11px; color: #075e54;">{{ msg.sender }}</span><br>
             {% endif %}
+            
             <div class="msg-content">{{ msg.content }}</div>
+
+            {% if msg.file_url %}
+            <div class="media-box">
+                {% if msg.file_type == 'image' %}
+                    <img src="{{ msg.file_url }}" loading="lazy">
+                {% elif msg.file_type == 'video' %}
+                    <video controls preload="metadata"><source src="{{ msg.file_url }}"></video>
+                {% endif %}
+                <a href="{{ msg.file_url }}" download class="download-btn">⬇️ حفظ في الهاتف</a>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
 
-    <form class="input-area" action="/send" method="POST">
+    <div id="file-chosen">تم اختيار ملف ✅</div>
+
+    <form class="input-area" action="/send" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="chat_type" value="{% if recipient %}private{% else %}public{% endif %}">
         <input type="hidden" name="receiver" value="{{ recipient if recipient else 'Group' }}">
         
-        <input type="text" name="content" placeholder="اكتب رسالتك هنا..." required autocomplete="off">
+        <label for="file-input" class="file-label" title="إرفاق صورة أو فيديو">📎</label>
+        <input id="file-input" type="file" name="file" style="display:none;" accept="image/*,video/*,audio/*" onchange="showChosen()">
+        
+        <input type="text" name="content" placeholder="اكتب رسالتك..." autocomplete="off">
         <button type="submit">إرسال</button>
     </form>
 
     <script>
-        // لجعل الشات ينزل لآخر رسالة تلقائياً عند الفتح
         var chatBox = document.getElementById("chatBox");
         chatBox.scrollTop = chatBox.scrollHeight;
-    </script>
 
+        function showChosen() {
+            document.getElementById('file-chosen').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
