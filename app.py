@@ -7,7 +7,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mohannad_yemen_pro_2026'
+app.config['SECRET_KEY'] = 'mohannad_final_2026'
 app.config["MONGO_URI"] = "mongodb+srv://mohannad:family123@cluster0.arkrscx.mongodb.net/chat_db?retryWrites=true&w=majority&appName=Cluster0"
 
 UPLOAD_FOLDER = 'static/uploads'
@@ -42,21 +42,28 @@ def private_chat(recipient):
     users = list(mongo.db.users.find({"username": {"$ne": current_user.username}}))
     return render_template('chat.html', users=users, chat_type="private", recipient=recipient)
 
-# --- ميزة جلب الرسائل الجديدة صامتاً ---
+# جلب الرسائل بصيغة JSON للتحديث الصامت
 @app.route('/get_messages/<chat_type>/<receiver>')
 @login_required
 def get_messages(chat_type, receiver):
     query = {"type": "public"} if chat_type == "public" else {
         "type": "private",
-        "$or": [{"sender": current_user.username, "receiver": receiver}, {"sender": receiver, "receiver": current_user.username}]
+        "$or": [{"sender": current_user.username, "receiver": receiver}, 
+                {"sender": receiver, "receiver": current_user.username}]
     }
     messages = list(mongo.db.messages.find(query).sort("timestamp", 1))
     
+    # تجهيز الرسائل للإرسال للمتصفح
+    output = []
     for msg in messages:
-        msg['_id'] = str(msg['_id'])
-        msg['timestamp'] = msg['timestamp'].strftime('%I:%M %p') if 'timestamp' in msg else ""
-            
-    return jsonify({"messages": messages, "current_user": current_user.username})
+        output.append({
+            "sender": msg['sender'],
+            "content": msg.get('content', ''),
+            "file_url": msg.get('file_url'),
+            "file_type": msg.get('file_type'),
+            "timestamp": msg['timestamp'].strftime('%I:%M %p') if 'timestamp' in msg else ""
+        })
+    return jsonify({"messages": output, "current_user": current_user.username})
 
 @app.route('/send', methods=['POST'])
 @login_required
@@ -78,9 +85,13 @@ def send():
 
     if content or file_url:
         mongo.db.messages.insert_one({
-            "sender": current_user.username, "receiver": receiver,
-            "content": content, "file_url": file_url, "file_type": file_type,
-            "type": chat_type, "timestamp": datetime.utcnow()
+            "sender": current_user.username,
+            "receiver": receiver,
+            "content": content,
+            "file_url": file_url,
+            "file_type": file_type,
+            "type": chat_type,
+            "timestamp": datetime.utcnow()
         })
     return redirect(url_for('private_chat', recipient=receiver) if chat_type == "private" else url_for('index'))
 
