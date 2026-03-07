@@ -7,8 +7,9 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mohannad_final_2026'
-app.config["MONGO_URI"] = "mongodb+srv://mohannad:family123@cluster0.arkrscx.mongodb.net/chat_db?retryWrites=true&w=majority&appName=Cluster0"
+app.config['SECRET_KEY'] = 'mohannad_secure_2026'
+# ملاحظة: يفضل وضع الرابط في Environment Variables على Render للأمان
+app.config["MONGO_URI"] = "mongodb+srv://mohannad:family123@cluster0.arkrscx.mongodb.net/chat_db?retryWrites=true&w=majority"
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -42,7 +43,6 @@ def private_chat(recipient):
     users = list(mongo.db.users.find({"username": {"$ne": current_user.username}}))
     return render_template('chat.html', users=users, chat_type="private", recipient=recipient)
 
-# جلب الرسائل بصيغة JSON للتحديث الصامت
 @app.route('/get_messages/<chat_type>/<receiver>')
 @login_required
 def get_messages(chat_type, receiver):
@@ -52,8 +52,6 @@ def get_messages(chat_type, receiver):
                 {"sender": receiver, "receiver": current_user.username}]
     }
     messages = list(mongo.db.messages.find(query).sort("timestamp", 1))
-    
-    # تجهيز الرسائل للإرسال للمتصفح
     output = []
     for msg in messages:
         output.append({
@@ -80,8 +78,8 @@ def send():
         file_url = f"/static/uploads/{filename}"
         ext = filename.rsplit('.', 1)[1].lower()
         if ext in ['jpg', 'jpeg', 'png', 'gif']: file_type = 'image'
-        elif ext in ['mp4', 'mov', 'avi']: file_type = 'video'
-        else: file_type = 'audio'
+        elif ext in ['mp4', 'mov', 'avi', 'm4v']: file_type = 'video'
+        elif ext in ['mp3', 'wav', 'ogg', 'm4a']: file_type = 'audio'
 
     if content or file_url:
         mongo.db.messages.insert_one({
@@ -93,7 +91,16 @@ def send():
             "type": chat_type,
             "timestamp": datetime.utcnow()
         })
-    return redirect(url_for('private_chat', recipient=receiver) if chat_type == "private" else url_for('index'))
+    return jsonify({"status": "success"})
+
+@app.route('/change_password', methods=['POST'])
+@login_required
+def change_password():
+    new_pw = request.form.get('new_password')
+    if new_pw:
+        mongo.db.users.update_one({"_id": ObjectId(current_user.id)}, {"$set": {"password": new_pw}})
+        return jsonify({"status": "success", "message": "تم تحديث كلمة المرور بنجاح!"})
+    return jsonify({"status": "error"}), 400
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
