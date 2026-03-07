@@ -2,29 +2,30 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>دردشة بيت مختار</title>
     <style>
-        body { font-family: sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .family-bar { background: #075e54; color: white; padding: 10px; display: flex; gap: 10px; overflow-x: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .family-member { background: #128c7e; padding: 8px 15px; border-radius: 20px; text-decoration: none; color: white; font-size: 13px; white-space: nowrap; }
-        .family-member.active { background: #25d366; border: 1px solid white; font-weight: bold; }
-        .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 90px; }
-        .message { max-width: 80%; padding: 8px 12px; border-radius: 10px; font-size: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; word-wrap: break-word; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .family-bar { background: #075e54; color: white; padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; }
+        .family-member { background: #128c7e; padding: 8px 15px; border-radius: 20px; text-decoration: none; color: white; font-size: 13px; border: none; cursor: pointer; }
+        .family-member.active { background: #25d366; font-weight: bold; border: 1px solid white; }
+        .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px; }
+        .message { max-width: 85%; padding: 10px; border-radius: 10px; font-size: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; word-wrap: break-word; }
         .sent { align-self: flex-end; background-color: #dcf8c6; border-bottom-right-radius: 0; }
         .received { align-self: flex-start; background-color: #ffffff; border-bottom-left-radius: 0; }
-        .sender-name { font-weight: bold; font-size: 11px; color: #075e54; display: block; margin-bottom: 2px; }
-        .status-tick { color: #4fc3f7; font-size: 11px; float: left; margin-top: 5px; font-weight: bold; }
-        .input-area { background: #f0f0f0; padding: 10px; display: flex; gap: 8px; align-items: center; border-top: 1px solid #ddd; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; }
-        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; }
-        .mic-btn { background: #25d366; border-radius: 50%; width: 40px; height: 40px; color: white; border: none; font-size: 18px; cursor: pointer; }
-        .media-content img { max-width: 100%; border-radius: 8px; margin-top: 5px; }
+        .media-content img, .media-content video { max-width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; max-height: 300px; }
+        .download-btn { display: inline-block; margin-top: 5px; font-size: 11px; color: #075e54; text-decoration: none; background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 5px; }
+        .input-area { background: #f0f0f0; padding: 10px; display: flex; gap: 8px; align-items: center; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; font-size: 16px; }
+        .mic-btn { background: #25d366; border-radius: 50%; width: 45px; height: 45px; color: white; border: none; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .send-btn { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 25px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="family-bar">
-        <a href="https://meet.jit.si/FamilyMukhtar2026" target="_blank" class="family-member" style="background:#e91e63">📞 اتصال فيديو</a>
+        <button onclick="changePass()" class="family-member" style="background:#607d8b">⚙️ تغيير الرمز</button>
+        <a href="https://meet.jit.si/FamilyMukhtar2026" target="_blank" class="family-member" style="background:#e91e63">📞 اتصال</a>
         <a href="/" class="family-member {% if chat_type == 'public' %}active{% endif %}">📢 العام</a>
         {% for user in users %}
         <a href="/private/{{ user.username }}" class="family-member {% if recipient == user.username %}active{% endif %}">👤 {{ user.username }}</a>
@@ -33,75 +34,102 @@
 
     <div class="chat-container" id="chatBox"></div>
 
-    <form class="input-area" action="/send" method="POST" enctype="multipart/form-data" id="sendForm">
+    <form class="input-area" id="msgForm" enctype="multipart/form-data">
         <input type="hidden" name="chat_type" value="{{ chat_type }}">
         <input type="hidden" name="receiver" value="{{ recipient if recipient else 'Group' }}">
-        <label for="file-input" style="font-size:24px; cursor:pointer;">📎</label>
-        <input id="file-input" type="file" name="file" style="display:none" onchange="alert('تم اختيار الملف ✅')">
-        <input type="text" name="content" placeholder="رسالتك..." id="msgInput" autocomplete="off">
+        
+        <label for="file-input" style="font-size:26px; cursor:pointer;">📎</label>
+        <input id="file-input" type="file" name="file" style="display:none" onchange="handleFileSelect()">
+        
+        <input type="text" name="content" placeholder="اكتب رسالة..." id="msgInput" autocomplete="off">
+        
         <button type="button" class="mic-btn" id="micBtn">🎤</button>
-        <button type="submit" style="background:#075e54; color:white; border:none; padding:10px 18px; border-radius:25px; font-weight:bold;">إرسال</button>
+        <button type="submit" class="send-btn">إرسال</button>
     </form>
 
     <script>
         const chatBox = document.getElementById("chatBox");
-        const msgInput = document.getElementById('msgInput');
+        const msgForm = document.getElementById("msgForm");
+        const msgInput = document.getElementById("msgInput");
         const chat_type = "{{ chat_type }}";
         const receiver = "{{ recipient if recipient else 'Group' }}";
         let lastCount = 0;
+
+        function handleFileSelect() {
+            alert("تم اختيار الملف بنجاح ✅");
+        }
+
+        async function changePass() {
+            const p = prompt("أدخل كلمة المرور الجديدة:");
+            if(p) {
+                const fd = new FormData(); fd.append('new_password', p);
+                const res = await fetch('/change_password', {method:'POST', body:fd});
+                const d = await res.json(); alert(d.message);
+            }
+        }
 
         async function loadMessages() {
             try {
                 const res = await fetch(`/get_messages/${chat_type}/${receiver}`);
                 const data = await res.json();
-                
                 let html = "";
                 data.messages.forEach(msg => {
                     const isSent = msg.sender === data.current_user;
                     html += `
                         <div class="message ${isSent ? 'sent' : 'received'}">
-                            ${chat_type === 'public' && !isSent ? `<span class="sender-name">${msg.sender}</span>` : ''}
+                            ${chat_type === 'public' && !isSent ? `<span style="font-size:10px; color:#075e54; font-weight:bold;">${msg.sender}</span>` : ''}
                             <div>${msg.content}</div>
                             ${msg.file_url ? `
                                 <div class="media-content">
-                                    ${msg.file_type === 'image' ? `<img src="${msg.file_url}">` : ''}
-                                    ${msg.file_type === 'video' ? `<video controls style="width:100%"><source src="${msg.file_url}"></video>` : ''}
-                                    ${msg.file_type === 'audio' ? `<audio controls style="width:100%"><source src="${msg.file_url}"></audio>` : ''}
+                                    ${msg.file_type === 'image' ? `<img src="${msg.file_url}" onclick="window.open(this.src)">` : ''}
+                                    ${msg.file_type === 'video' ? `<video controls preload="metadata"><source src="${msg.file_url}"></video>` : ''}
+                                    ${msg.file_type === 'audio' ? `<audio controls preload="metadata"><source src="${msg.file_url}"></audio>` : ''}
+                                    <br><a href="${msg.file_url}" download class="download-btn">تحميل ⬇️</a>
                                 </div>` : ''}
-                            <span class="status-tick">✓✓</span>
+                            <span style="font-size:9px; color:#999; display:block; text-align:left; margin-top:4px;">${msg.timestamp} ✓✓</span>
                         </div>`;
                 });
-
-                if (msgInput.value === "") {
-                    chatBox.innerHTML = html;
-                    if (data.messages.length > lastCount) {
-                        chatBox.scrollTop = chatBox.scrollHeight;
-                        lastCount = data.messages.length;
-                    }
+                chatBox.innerHTML = html;
+                if (data.messages.length > lastCount) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    lastCount = data.messages.length;
                 }
             } catch (e) {}
         }
 
-        setInterval(loadMessages, 4000); // تحديث صامت كل 4 ثوانٍ
+        msgForm.onsubmit = async (e) => {
+            e.preventDefault();
+            if(!msgInput.value && !document.getElementById('file-input').files[0]) return;
+            const fd = new FormData(msgForm);
+            await fetch('/send', {method:'POST', body:fd});
+            msgInput.value = "";
+            document.getElementById('file-input').value = "";
+            loadMessages();
+        };
+
+        setInterval(loadMessages, 3000);
         loadMessages();
 
-        // كود الميكروفون
+        // ميكروفون متطور يدعم أغلب الهواتف
         let mediaRecorder; let chunks = [];
         document.getElementById('micBtn').onclick = async () => {
             if (!mediaRecorder || mediaRecorder.state === "inactive") {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.start();
-                chunks = [];
-                document.getElementById('micBtn').innerHTML = "🛑";
-                mediaRecorder.ondataavailable = e => chunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    const file = new File([new Blob(chunks, { type: 'audio/mp3' })], "voice.mp3", { type: "audio/mp3" });
-                    let dt = new DataTransfer(); dt.items.add(file);
-                    document.getElementById('file-input').files = dt.files;
-                    alert("الصوت جاهز ✅");
-                    document.getElementById('micBtn').innerHTML = "🎤";
-                };
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    chunks = [];
+                    document.getElementById('micBtn').innerHTML = "🛑";
+                    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(chunks, { type: 'audio/mp4' });
+                        const file = new File([blob], "voice_msg.m4a", { type: "audio/m4a" });
+                        let dt = new DataTransfer(); dt.items.add(file);
+                        document.getElementById('file-input').files = dt.files;
+                        alert("التسجيل جاهز، اضغط إرسال ✅");
+                        document.getElementById('micBtn').innerHTML = "🎤";
+                    };
+                } catch(err) { alert("يرجى السماح بالوصول للميكروفون"); }
             } else { mediaRecorder.stop(); }
         };
     </script>
