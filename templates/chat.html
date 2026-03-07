@@ -3,135 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>دردشة بيت مختار</title>
+    <title>Family Chat</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .family-bar { background: #075e54; color: white; padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; }
-        .family-member { background: #128c7e; padding: 8px 15px; border-radius: 20px; text-decoration: none; color: white; font-size: 13px; border: none; cursor: pointer; }
-        .family-member.active { background: #25d366; font-weight: bold; border: 1px solid white; }
-        .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px; }
-        .message { max-width: 85%; padding: 10px; border-radius: 10px; font-size: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; word-wrap: break-word; }
-        .sent { align-self: flex-end; background-color: #dcf8c6; border-bottom-right-radius: 0; }
-        .received { align-self: flex-start; background-color: #ffffff; border-bottom-left-radius: 0; }
-        .media-content img, .media-content video { max-width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; max-height: 300px; }
-        .download-btn { display: inline-block; margin-top: 5px; font-size: 11px; color: #075e54; text-decoration: none; background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 5px; }
+        :root { --wa-green: #075e54; --wa-light-green: #25d366; --wa-bg: #e5ddd5; }
+        body { font-family: sans-serif; margin: 0; background: #f0f2f5; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* شريط العنوان */
+        .header { background: var(--wa-green); color: white; padding: 12px 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .header a { color: white; text-decoration: none; font-size: 20px; }
+        .header .title { flex: 1; font-weight: bold; }
+
+        /* قائمة الدردشات */
+        .chat-list { flex: 1; overflow-y: auto; background: white; }
+        .chat-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; text-decoration: none; color: black; }
+        .chat-item:active { background: #f5f5f5; }
+        .avatar { width: 50px; height: 50px; background: #ddd; border-radius: 50%; margin-left: 15px; position: relative; display:flex; align-items:center; justify-content:center; font-weight:bold; color:#777; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; position: absolute; bottom: 2px; right: 2px; }
+        .online { background: var(--wa-light-green); }
+        .offline { background: #bbb; }
+
+        /* نافذة الدردشة */
+        .chat-window { flex: 1; display: flex; flex-direction: column; background: var(--wa-bg); }
+        #chatBox { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 10px; font-size: 15px; position: relative; }
+        .msg.sent { align-self: flex-end; background: #dcf8c6; }
+        .msg.received { align-self: flex-start; background: white; }
+        
+        /* منطقة الإدخال */
         .input-area { background: #f0f0f0; padding: 10px; display: flex; gap: 8px; align-items: center; position: fixed; bottom: 0; width: 100%; box-sizing: border-box; }
-        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; font-size: 16px; }
-        .mic-btn { background: #25d366; border-radius: 50%; width: 45px; height: 45px; color: white; border: none; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .send-btn { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 25px; font-weight: bold; cursor: pointer; }
+        .input-area input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #ccc; outline: none; }
+        .btn-send { background: var(--wa-green); color: white; border: none; padding: 10px 18px; border-radius: 25px; font-weight: bold; }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div class="family-bar">
-        <button onclick="changePass()" class="family-member" style="background:#607d8b">⚙️ تغيير الرمز</button>
-        <a href="https://meet.jit.si/FamilyMukhtar2026" target="_blank" class="family-member" style="background:#e91e63">📞 اتصال</a>
-        <a href="/" class="family-member {% if chat_type == 'public' %}active{% endif %}">📢 العام</a>
-        {% for user in users %}
-        <a href="/private/{{ user.username }}" class="family-member {% if recipient == user.username %}active{% endif %}">👤 {{ user.username }}</a>
-        {% endfor %}
+    <div class="header">
+        {% if chat_view == 'room' %}
+            <a href="/">⬅️</a>
+            <div class="title">
+                {{ recipient if recipient != 'Group' else 'المجلس العام' }}
+                <div id="sub-status" style="font-size: 10px; font-weight: normal;">تحديث...</div>
+            </div>
+        {% else %}
+            <div class="title">دردشة بيت مختار</div>
+            <button onclick="changePassword()" style="background:none; border:none; color:white; font-size:18px;">⚙️</button>
+        {% endif %}
     </div>
 
-    <div class="chat-container" id="chatBox"></div>
-
-    <form class="input-area" id="msgForm" enctype="multipart/form-data">
-        <input type="hidden" name="chat_type" value="{{ chat_type }}">
-        <input type="hidden" name="receiver" value="{{ recipient if recipient else 'Group' }}">
-        
-        <label for="file-input" style="font-size:26px; cursor:pointer;">📎</label>
-        <input id="file-input" type="file" name="file" style="display:none" onchange="handleFileSelect()">
-        
-        <input type="text" name="content" placeholder="اكتب رسالة..." id="msgInput" autocomplete="off">
-        
-        <button type="button" class="mic-btn" id="micBtn">🎤</button>
-        <button type="submit" class="send-btn">إرسال</button>
-    </form>
+    {% if chat_view == 'list' %}
+    <div class="chat-list">
+        <a href="/chat/public/Group" class="chat-item">
+            <div class="avatar">📢</div>
+            <div style="flex:1"><b>المجلس العام</b><br><small>مراسلة الجميع</small></div>
+        </a>
+        {% for user in users %}
+        <a href="/chat/private/{{ user.username }}" class="chat-item">
+            <div class="avatar">
+                {{ user.username[0] }}
+                <div class="status-dot offline" id="dot-{{ user.username }}"></div>
+            </div>
+            <div style="flex:1"><b>{{ user.username }}</b><br><small id="txt-{{ user.username }}">غير متصل</small></div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="chat-window">
+        <div id="chatBox"></div>
+        <form class="input-area" id="sendForm">
+            <input type="hidden" name="chat_type" value="{{ chat_type }}">
+            <input type="hidden" name="receiver" value="{{ recipient }}">
+            <label for="f-in" style="font-size:22px; cursor:pointer;">📎</label>
+            <input type="file" id="f-in" name="file" class="hidden" onchange="alert('تم الاختيار')">
+            <input type="text" name="content" id="m-in" placeholder="اكتب رسالة..." autocomplete="off">
+            <button type="button" id="mic" style="background:none; border:none; font-size:20px;">🎤</button>
+            <button type="submit" class="btn-send">إرسال</button>
+        </form>
+    </div>
+    {% endif %}
 
     <script>
-        const chatBox = document.getElementById("chatBox");
-        const msgForm = document.getElementById("msgForm");
-        const msgInput = document.getElementById("msgInput");
-        const chat_type = "{{ chat_type }}";
-        const receiver = "{{ recipient if recipient else 'Group' }}";
-        let lastCount = 0;
+        // تحديث "متصل الآن" كل 20 ثانية
+        async function updateMe() { await fetch('/update_presence'); }
+        setInterval(updateMe, 20000); updateMe();
 
-        function handleFileSelect() {
-            alert("تم اختيار الملف بنجاح ✅");
+        // جلب حالات الاتصال للجميع
+        async function refreshStatuses() {
+            const res = await fetch('/get_statuses');
+            const data = await res.json();
+            for (const user in data) {
+                const dot = document.getElementById('dot-' + user);
+                const txt = document.getElementById('txt-' + user);
+                if(dot) dot.className = 'status-dot ' + data[user];
+                if(txt) txt.innerText = data[user] === 'online' ? 'متصل الآن' : 'غير متصل';
+                
+                // تحديث الحالة في أعلى المحادثة المفتوحة
+                if ("{{ recipient }}" === user) {
+                    const sub = document.getElementById('sub-status');
+                    if(sub) sub.innerText = data[user] === 'online' ? 'متصل الآن' : 'آخر ظهور منذ فترة';
+                }
+            }
+        }
+        setInterval(refreshStatuses, 10000); refreshStatuses();
+
+        // وظائف الدردشة (فقط إذا كانت الغرفة مفتوحة)
+        if ("{{ chat_view }}" === "room") {
+            const chatBox = document.getElementById('chatBox');
+            async function loadMsgs() {
+                const res = await fetch('/get_messages/{{ chat_type }}/{{ recipient }}');
+                const data = await res.json();
+                let h = "";
+                data.messages.forEach(m => {
+                    const isS = m.sender === data.current_user;
+                    h += `<div class="msg ${isS ? 'sent' : 'received'}">
+                        <small style="color:var(--wa-green); font-weight:bold">${isS ? '' : m.sender + '<br>'}</small>
+                        ${m.content}
+                        ${m.file_url ? `<br>${m.file_type === 'image' ? `<img src="${m.file_url}" style="width:100%; border-radius:5px" onclick="window.open(this.src)">` : `<a href="${m.file_url}" download>📁 تحميل الملف</a>`}` : ''}
+                        <div style="font-size:9px; text-align:left; color:#888; margin-top:4px">${m.timestamp}</div>
+                    </div>`;
+                });
+                chatBox.innerHTML = h;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            setInterval(loadMsgs, 4000); loadMsgs();
+
+            document.getElementById('sendForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                await fetch('/send', {method:'POST', body:fd});
+                document.getElementById('m-in').value = "";
+                document.getElementById('f-in').value = "";
+                loadMsgs();
+            };
         }
 
-        async function changePass() {
+        async function changePassword() {
             const p = prompt("أدخل كلمة المرور الجديدة:");
             if(p) {
                 const fd = new FormData(); fd.append('new_password', p);
-                const res = await fetch('/change_password', {method:'POST', body:fd});
-                const d = await res.json(); alert(d.message);
+                const r = await fetch('/change_password', {method:'POST', body:fd});
+                const d = await r.json(); alert(d.message);
             }
         }
-
-        async function loadMessages() {
-            try {
-                const res = await fetch(`/get_messages/${chat_type}/${receiver}`);
-                const data = await res.json();
-                let html = "";
-                data.messages.forEach(msg => {
-                    const isSent = msg.sender === data.current_user;
-                    html += `
-                        <div class="message ${isSent ? 'sent' : 'received'}">
-                            ${chat_type === 'public' && !isSent ? `<span style="font-size:10px; color:#075e54; font-weight:bold;">${msg.sender}</span>` : ''}
-                            <div>${msg.content}</div>
-                            ${msg.file_url ? `
-                                <div class="media-content">
-                                    ${msg.file_type === 'image' ? `<img src="${msg.file_url}" onclick="window.open(this.src)">` : ''}
-                                    ${msg.file_type === 'video' ? `<video controls preload="metadata"><source src="${msg.file_url}"></video>` : ''}
-                                    ${msg.file_type === 'audio' ? `<audio controls preload="metadata"><source src="${msg.file_url}"></audio>` : ''}
-                                    <br><a href="${msg.file_url}" download class="download-btn">تحميل ⬇️</a>
-                                </div>` : ''}
-                            <span style="font-size:9px; color:#999; display:block; text-align:left; margin-top:4px;">${msg.timestamp} ✓✓</span>
-                        </div>`;
-                });
-                chatBox.innerHTML = html;
-                if (data.messages.length > lastCount) {
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                    lastCount = data.messages.length;
-                }
-            } catch (e) {}
-        }
-
-        msgForm.onsubmit = async (e) => {
-            e.preventDefault();
-            if(!msgInput.value && !document.getElementById('file-input').files[0]) return;
-            const fd = new FormData(msgForm);
-            await fetch('/send', {method:'POST', body:fd});
-            msgInput.value = "";
-            document.getElementById('file-input').value = "";
-            loadMessages();
-        };
-
-        setInterval(loadMessages, 3000);
-        loadMessages();
-
-        // ميكروفون متطور يدعم أغلب الهواتف
-        let mediaRecorder; let chunks = [];
-        document.getElementById('micBtn').onclick = async () => {
-            if (!mediaRecorder || mediaRecorder.state === "inactive") {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    chunks = [];
-                    document.getElementById('micBtn').innerHTML = "🛑";
-                    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-                    mediaRecorder.onstop = () => {
-                        const blob = new Blob(chunks, { type: 'audio/mp4' });
-                        const file = new File([blob], "voice_msg.m4a", { type: "audio/m4a" });
-                        let dt = new DataTransfer(); dt.items.add(file);
-                        document.getElementById('file-input').files = dt.files;
-                        alert("التسجيل جاهز، اضغط إرسال ✅");
-                        document.getElementById('micBtn').innerHTML = "🎤";
-                    };
-                } catch(err) { alert("يرجى السماح بالوصول للميكروفون"); }
-            } else { mediaRecorder.stop(); }
-        };
     </script>
 </body>
 </html>
